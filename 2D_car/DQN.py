@@ -12,17 +12,7 @@ from keras.utils import plot_model
 
 import matplotlib.pyplot as plt
 
-class Color():
-	W = '\033[0m'
-	DR = '\033[31m'
-	DG = '\033[32m'
-	BG = '\033[1;32m'
-	DY = '\033[33m'
-	BY = '\033[1;33m'
-	DB = '\033[34m'
-	BB = '\033[1;34m'
-	DP = '\033[35m'
-	BP = '\033[1;35m'
+
 
 
 class DQN():
@@ -36,41 +26,46 @@ class DQN():
 				 epsilon = 0.8,
 				 epsilon_decay = 0.996,
 				 epsilon_min = 0.02,
-				 multi_thread = True,
 				 show = True,
-				 simple_bellman = True,
 				):
 
+		#####################################################################################
+		# DON'T EDIT THESE BLOCK IF YOU ARE NOT SURE WHAT IT IS DOING
 		self.ep = 0
-
 		self.gamma = gamma
 		self.beta = beta
 		self.batch_size = 32
 		self.epsilon, self.epsilon_decay, self.epsilon_min = epsilon, epsilon_decay, epsilon_min
 		self.n_input = n_input
 		self.n_output = n_output
-		self.multi_thread = multi_thread
-		self.memory = deque(maxlen=memory_size)
 		self.loss   = deque(maxlen=100000)
-		self.simple_bellman = simple_bellman
+		self.plot_on = {'reward': False, 'S=steps:':False}
+		# DON'T EDIT THESE BLOCK IF YOU ARE NOT SURE WHAT IT IS DOING
+		#####################################################################################
 
-		# build model
+
+
+		self.memory = deque(maxlen=memory_size)  # This is where to store your memory
+
+
+
+		# Build Your Model "self.Q_eval" HERE ! 
 		self.Q_eval = Sequential()
-		#self.Q_eval.add(Dense(100, input_dim=n_input, activation='linear', kernel_initializer='glorot_normal', bias_initializer='glorot_normal'))
-		self.Q_eval.add(Dense(100, input_dim=n_input, activation='tanh', kernel_initializer='glorot_normal', bias_initializer='glorot_normal'))
-		#self.Q_eval.add(Dense(100, activation='tanh', kernel_initializer='glorot_normal', bias_initializer='glorot_normal'))
-		self.Q_eval.add(Dense(100, activation='tanh', kernel_initializer='glorot_normal', bias_initializer='glorot_normal'))
-		#self.Q_eval.add(Dense(100, activation='sigmoid', kernel_initializer='glorot_normal', bias_initializer='glorot_normal'))
-		#self.Q_eval.add(Dense(100, activation='sigmoid', kernel_initializer='glorot_normal', bias_initializer='glorot_normal'))
-		self.Q_eval.add(Dense(n_output, activation='linear', kernel_initializer='glorot_normal', bias_initializer='glorot_normal'))
-		#self.Q_eval.add(Dense(n_output, activation='tanh', kernel_initializer='glorot_normal', bias_initializer='glorot_normal'))
-		self.Q_eval.compile(optimizer = 'rmsprop', loss='mse')
+		
 
+
+
+
+
+		
+
+
+		# make sure to compile your model !
+
+
+		# Copy Q_eval to target net Q_target and compile.
 		self.Q_target = clone_model(self.Q_eval)
-		self.Q_target.compile(optimizer = 'rmsprop', loss='mse')
-
-		self.Q_train = clone_model(self.Q_eval)
-		self.Q_train.compile(optimizer = 'rmsprop', loss='mse')
+		self.Q_target.compile(optimizer = 'Adadelta', loss='mse')
 
 
 		self.weight_of_Q_train = self.Q_train.get_weights()
@@ -79,9 +74,10 @@ class DQN():
 		
 		
 
-
+		#####################################################################################
+		# DON'T EDIT THESE BLOCK IF YOU ARE NOT SURE WHAT IT IS DOING
 		# for plots
-		if not multi_thread and show: plt.ion()
+		if show: plt.ion()
 		self.fig = plt.figure()
 		self.r_saver = []
 		self.step_saver = []
@@ -90,84 +86,51 @@ class DQN():
 		self.quartile_saver = [[],[],[]]
 		self.total_time_step = 0
 		self.action_taken=[0]*n_output
-
 		self.show = show
+		# DON'T EDIT THESE BLOCK IF YOU ARE NOT SURE WHAT IT IS DOING
+		#####################################################################################
 
-		if multi_thread:
-			print(Color.BY+'Multi-Thread Mode'+Color.W)
 
-
-	def get_description(self):
-
-		import os
-
-		self.description = input(Color.BP+'Description: '+Color.W)
-		self.test_name = input(Color.BP+'Test Name: '+Color.W)
-
-		
-		if not os.path.exists('log/' + self.test_name): os.makedirs('log/'+self.test_name)
-		plot_model(self.Q_eval, to_file='log/'+self.test_name+'/'+self.description+'.png', show_shapes=True)
 
 	def Remember(self, s, a, r, s_, done):
-
-		self.memory.append((s, a, r, s_, done))
-		self.memory.append((np.reshape(s[0][::-1], (1, self.n_input)), -a + self.n_output - 1 , r, np.reshape(s_[0][::-1], (1, self.n_input)), done))
+		# Store it in your memory
+		pass
+				
 		
 
 
 	def ChooseAction(self, s):
 		self.ep += 1
-		ret = None
-		if np.random.random() <= self.epsilon: 
-			ret = random.randrange(0, self.n_output)
-			'''
-			if np.random.random() < 0.1:
-				if np.random.random() > 0.5: ret = self.n_output-1
-				else : ret = 0
-			else: ret = random.randrange(1, self.n_output-1)
-			'''
-		else: 
-			ret = np.argmax(self.Q_eval.predict(s))
-		self.action_taken[ret] += 1
-		return ret
+		# Choose action and return.
+		
 
 
-	def MemoryReplay(self):
-		#print('MemoryReplay!')
+
+	def MemoryReplay(self):		
+
 		x_batch, y_batch = [], []
 		minibatch = random.sample(self.memory, min(len(self.memory), self.batch_size))
 
 		for s, a, r, s_, done in minibatch:
-			y_target = self.Q_train.predict(s) if self.multi_thread else self.Q_eval.predict(s)
-			origin = y_target[0][a]
-			target = None
-			if done: target = r
-			else:
-				if self.simple_bellman:
-					#target = r + self.gamma * np.max(self.Q_target.predict(s_)[0]) 
-					input('ERROR HERE!!! in DQN.py, self.MemoryReplay()')
+			# I've sample the minibatch from memory, the rest is your work !
+			# You can do "DQN" rather than "Double DQN" first
+			# You can use "self.gamma" you passed in at main.py in Bellman Equation 
+			pass
 
-				else:
-					target = (1-self.beta) * y_target[0][a] + self.beta * (r + self.gamma * np.max(self.Q_target.predict(s_)[0]))
-				
 
-			self.loss.append(abs(target-origin))
-
-			y_target[0][a] = target
-
-			x_batch.append(s[0])
-			y_batch.append(y_target[0]) ##
-
-		if self.multi_thread:
-			self.Q_train.fit(np.array(x_batch), np.array(y_batch), batch_size=len(x_batch), verbose=0)
-			self.weight_of_Q_train = self.Q_train.get_weights()
-		else: 
-			self.Q_eval.fit(np.array(x_batch), np.array(y_batch), batch_size=len(x_batch), verbose=0)
+		
+		self.Q_eval.fit(np.array(x_batch), np.array(y_batch), batch_size=len(x_batch), verbose=0)
 		
 
 
-	def ReplaceTarget(self):
-		#print('ReplaceTarget!')
+
+
+
+	def ReplaceTarget(self): # You Don't Need To Edit Here
+
+		# Call this whenever you want to replace your Target Net (The freezed one) by Eval Net
+		# If you are trying "DQN" rather than "Double DQN", just ignore this
+
 		weight = self.Q_train.get_weights() if self.multi_thread else self.Q_eval.get_weights()
 		self.Q_target.set_weights(weight)
 		
@@ -179,64 +142,81 @@ class DQN():
 			print('epsilon =', self.epsilon)
 
 
-	def ReplaceEval(self):
-		#print('ReplaceEval')
-		self.Q_eval.set_weights(self.weight_of_Q_train)
 
-
-	def append_data(self, ep_reward = None, ep_steps = None):
+	def append_data(self, ep_reward = None, ep_steps = None): # You Don't Need To Edit Here
+		# Record Data for Result Plotting
 		if ep_reward is not None : 
+			self.plot_on['reward'] = True
 			self.r_saver.append(ep_reward)
 			self.n_r_saver.append(ep_reward)
 			self.quartile_saver[0].append(np.percentile(self.n_r_saver, 25))
 			self.quartile_saver[1].append(np.percentile(self.n_r_saver, 50))
 			self.quartile_saver[2].append(np.percentile(self.n_r_saver, 75))
 		if ep_steps is not None : 
+			self.plot_on['steps'] = True
 			self.step_saver.append(ep_steps)
 			self.total_time_step += ep_steps
 			
 
 
-	def plot(self):
+	def plot(self): # You Don't Need To Edit Here
+		# Plot Result using matplotlib
 
-		self.fig.suptitle(self.description)
+		if self.show: 
 
-		p = self.fig.add_subplot(3,1,1) 
-		p.clear()
-		p.set_yscale('log')
-		p.set_ylabel('loss')
-		p.grid(True)
-		p.plot(self.loss, 'bo', ms=0.1)
-		'''
-		r = self.fig.add_subplot(3,1,2)
-		r.clear()
-		r.set_ylabel('reward per ep')
-		r.grid(True)
-		r.plot(self.r_saver, 'go', ms=0.1)
-		'''
+			if self.plot_on['reward'] and self.plot_on['steps']:
 
-		s = self.fig.add_subplot(3,1,2)
-		s.clear()
-		s.set_ylabel('reward per ep')
-		#s.set_yscale('symlog', basey=10)
-		s.grid(True)
-		#s.plot(self.r_saver, 'yo', ms=0.2)
-		s.plot(self.quartile_saver[0], 'g-', lw=0.4)
-		s.plot(self.quartile_saver[1], 'b-', lw=0.4)
-		s.plot(self.quartile_saver[2], 'r-', lw=0.4)
+				self.fig.suptitle('')
 
-		q = self.fig.add_subplot(3,1,3)
-		q.clear()
-		q.set_ylabel('action taken')
-		q.grid(True)
-		x = range(len(self.action_taken))
-		q.bar(x, self.action_taken, 0.2, color='green')
+				r = self.fig.add_subplot(2,1,1)
+				r.clear()
+				r.set_ylabel('reward per ep')
+				#r.set_yscale('symlog', basey=10)
+				r.grid(True)
+				#r.plot(self.r_saver, 'yo', ms=0.2)
+				r.plot(self.quartile_saver[0], 'g-', lw=0.4)
+				r.plot(self.quartile_saver[1], 'b-', lw=0.4)
+				r.plot(self.quartile_saver[2], 'r-', lw=0.4)
 
-		
-		
+				s = self.fig.add_subplot(2,1,2)
+				s.clear()
+				s.set_ylabel('step per ep')
+				#s.set_yscale('log')
+				s.grid(True)
+				s.plot(self.step_saver, 'b-', lw=0.4)
 
-		if not self.multi_thread and self.show: plt.pause(0.01)
+				plt.pause(0.01)
 
+			elif self.plot_on['reward'] is False and self.plot_on['steps'] is True:
+				
+				self.fig.suptitle('')
+
+				s = self.fig.add_subplot(1,1,1)
+				s.clear()
+				s.set_ylabel('step per ep')
+				#s.set_yscale('log')
+				s.grid(True)
+				s.plot(self.step_saver, 'b-', lw=0.4)
+
+
+			elif self.plot_on['reward'] is False and self.plot_on['steps'] is True:
+
+				self.fig.suptitle('')
+
+				r = self.fig.add_subplot(1,1,1)
+				r.clear()
+				r.set_ylabel('reward per ep')
+				#r.set_yscale('symlog', basey=10)
+				r.grid(True)
+				#r.plot(self.r_saver, 'yo', ms=0.2)
+				r.plot(self.quartile_saver[0], 'g-', lw=0.4)
+				r.plot(self.quartile_saver[1], 'b-', lw=0.4)
+				r.plot(self.quartile_saver[2], 'r-', lw=0.4)
+
+			elif self.plot_on['reward'] is False and self.plot_on['steps'] is False:
+				pass
+
+				
 
 	def save_model(self, ep, apd):
 
@@ -256,4 +236,15 @@ class DQN():
 			self.fig.savefig('log/' + self.test_name + '/' + fig_name , dpi=self.fig.dpi)
 			print( Color.BY + "Saving Figure: " + 'log/' +  self.test_name + '/' + fig_name + Color.W )
 
-	
+
+class Color():
+	W = '\033[0m'
+	DR = '\033[31m'
+	DG = '\033[32m'
+	BG = '\033[1;32m'
+	DY = '\033[33m'
+	BY = '\033[1;33m'
+	DB = '\033[34m'
+	BB = '\033[1;34m'
+	DP = '\033[35m'
+	BP = '\033[1;35m'

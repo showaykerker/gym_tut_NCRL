@@ -21,9 +21,7 @@ pyglet.clock.set_fps_limit(10000)
 class CarEnv(object):
 	n_sensor = 13
 	action_dim = 1
-	#actions = [ -2, -1, 0, 1, 2]
 	actions = [ -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2]
-	#actions = [-2, -1.5, -1.4, -1.3, -1.2, -1., -0.8, -0.6, -0.4, -0.3 -0.2, -0.1, 0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1., 1.2 ,1.3, 1.4, 1.5, 2]
 	n_actions = len(actions)
 	state_dim = n_sensor
 	sensor_max = 120.
@@ -31,9 +29,8 @@ class CarEnv(object):
 	speed = 120.
 	dt = 0.2
 
-	def __init__(self, discrete_action=False, random_map=False, step_back=False, map_set=0):
+	def __init__(self, discrete_action=False, step_back=False, map_set=0):
 		self.is_discrete_action = discrete_action
-		self.random_map = random_map
 		self.step_back = step_back
 		self.step_count = 0
 
@@ -52,7 +49,7 @@ class CarEnv(object):
 		# node1 (x, y, r, w, l),
 		self.car_info = np.array([0, 0, 0, 20, 20], dtype=np.float64)   # car coordination
 
-		self.obstacle_coords = self.map_.randm() if random_map else self.map_.choose_map()
+		self.obstacle_coords = self.map_.choose_map()
 
 		self.n_obsacles = len(self.obstacle_coords)
 
@@ -93,8 +90,6 @@ class CarEnv(object):
 		return s, r, self.terminal
 
 	def reset(self):
-		if self.random_map: 
-			self.obstacle_coords = self.map_.randm()
 		self.terminal = False
 		out = not 0 < self.car_info[0] < self.viewer_xy[0] or not 0 < self.car_info[1] < self.viewer_xy[1]
 		if self.start or out or np.random.random() < 0.05 or not self.step_back: 
