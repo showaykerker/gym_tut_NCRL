@@ -21,7 +21,7 @@ pyglet.clock.set_fps_limit(10000)
 class CarEnv(object):
 	n_sensor = 13
 	action_dim = 1
-	actions = [ -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2]
+	actions = [ -1, 0, 1 ]
 	n_actions = len(actions)
 	state_dim = n_sensor
 	sensor_max = 120.
